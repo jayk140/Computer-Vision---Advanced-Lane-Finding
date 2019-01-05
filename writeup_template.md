@@ -43,11 +43,13 @@ You're reading it!
 
 #### 1. Briefly state how you computed the camera matrix and distortion coefficients. Provide an example of a distortion corrected calibration image.
 
-The code for this step is contained in the first code cell of the IPython notebook located in "./examples/example.ipynb" (or in lines # through # of the file called `some_file.py`).  
+The code for this step is contained in the first code cell after the initial imports of the IPython notebook located in "./main.ipynb".
 
-I start by preparing "object points", which will be the (x, y, z) coordinates of the chessboard corners in the world. Here I am assuming the chessboard is fixed on the (x, y) plane at z=0, such that the object points are the same for each calibration image.  Thus, `objp` is just a replicated array of coordinates, and `objpoints` will be appended with a copy of it every time I successfully detect all chessboard corners in a test image.  `imgpoints` will be appended with the (x, y) pixel position of each of the corners in the image plane with each successful chessboard detection.  
+We first need to correct for camera distortion, the effect in which objects, especially those close to the edges, can be stretched or skewed in various ways. This can change the apparent shape, size and location of various objects in the image.
 
-I then used the output `objpoints` and `imgpoints` to compute the camera calibration and distortion coefficients using the `cv2.calibrateCamera()` function.  I applied this distortion correction to the test image using the `cv2.undistort()` function and obtained this result: 
+To correct the distortion, I utilize an OpenCV function that calculates r, the known distance between a point in an undistorted image and the center of image distortion. To accomplish this, we'll read in a series of chessboard images at various shapes and angles. I then call the OpenCV functions findChessboardCorners() and drawChessboardCorners() to automatically find and draw corners in an image of a chessboard pattern. I map the corners of the 2D image, called image points, to the 3D corners of the real undistorted image, object points.
+
+I then used the output `object points` and `image points` to compute the camera calibration and distortion coefficients using the `cv2.calibrateCamera()` function.  I applied this distortion correction to the test image using the `cv2.undistort()` function and obtained this result: 
 
 ![alt text][image1]
 
@@ -60,13 +62,15 @@ To demonstrate this step, I will describe how I apply the distortion correction 
 
 #### 2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
 
-I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines # through # in `another_file.py`).  Here's an example of my output for this step.  (note: this is not actually from one of the test images)
+I used a combination of color and gradient thresholds to generate a binary image. For the gradient, I specifically applied the Sobel operator in the x-direction and computed the resulting magnitude. For the color gradient, I first converted to HLS color format to utilize the S channel values, which do a better job of retaining lane lines under different color and contrast conditions.
+
+Here's an example of my output for this step.
 
 ![alt text][image3]
 
 #### 3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
 
-The code for my perspective transform includes a function called `warper()`, which appears in lines 1 through 8 in the file `example.py` (output_images/examples/example.py) (or, for example, in the 3rd code cell of the IPython notebook).  The `warper()` function takes as inputs an image (`img`), as well as source (`src`) and destination (`dst`) points.  I chose the hardcode the source and destination points in the following manner:
+The code for my perspective transform includes a function called `warp()`, which appears in the 4th code cell of the IPython notebook).  The `warp()` function takes as inputs an image (`img`), as well as source (`src`) and destination (`dst`) points.  I chose the hardcode the source and destination points in the following manner:
 
 ```python
 src = np.float32(
@@ -96,17 +100,23 @@ I verified that my perspective transform was working as expected by drawing the 
 
 #### 4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
 
-Then I did some other stuff and fit my lane lines with a 2nd order polynomial kinda like this:
+To identify lane-line pixels, I initially plotted a histogram of binary activations along the x-columns of the image to clearly identify the left and right lane x positions. From this starting point, I used a sliding window technique to move upward along the image and define the rest of the lane pixel positions. I also periodically recalculated the center position of the lanes when sufficient pixels were found. 
+
+I then fitted a polynomial function given the lane line pixels I found. To improve the performance of the algorithm, after I found the polynomial fit from the initial frame, I used these values in subsequent frames to conduct a targeted search for lane line pixels around said line. 
+
+However, this technique will fail when we arrive at the left or right edge of the image. To account for this, I implemented a recalibration test every frame in which I compared the lane width and radius with sensible values. If the values fail the test, I revert to the first step of the polynomial fit. 
+
 
 ![alt text][image5]
 
 #### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
 
-I did this in lines # through # in my code in `my_other_file.py`
+This code is computed in the calculate_curve_in_meters and calculate_distance_width function in the notebook. Specifically, to compute the lane radius of the polynomial, I took advantage of the radius formula given the polynomial fit. 
+​   
 
 #### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
 
-I implemented this step in lines # through # in my code in `yet_another_file.py` in the function `map_lane()`.  Here is an example of my result on a test image:
+The code for this is in the draw_lanes_on_image function in the notebook. It takes advantage of the inverse matrix function provided by the cv2 getPerspectiveTransform function. 
 
 ![alt text][image6]
 
@@ -124,4 +134,7 @@ Here's a [link to my video result](./project_video.mp4)
 
 #### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+
+I ran into the expected issue of the algorithm failing given changing lighting conditions and also when the road took steep turns. One feature that improved robustness was implemented a recalibration_test for every frame. If the values for lane radius or width did not seem sensible, I recomputed the entire polynomial fit from scratch. Another feature that improved robustness was implemented a weighted average of the most recent x-values when using the polynomial fit from the previous frame. 
+
+However, in the harder_challenge_video, the algorithm still fails for very sharp turns. There seems to be a distinct lag in recalculating the changing radius curvature. 
