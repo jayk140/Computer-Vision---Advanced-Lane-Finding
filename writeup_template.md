@@ -135,6 +135,6 @@ Here's a [link to my video result](./project_video.mp4)
 #### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
 
-I ran into the expected issue of the algorithm failing given changing lighting conditions and also when the road took steep turns. One feature that improved robustness was implementing a recalibration_test for every frame. If the values for lane radius or width did not seem sensible, I recomputed the entire polynomial fit from scratch. Another feature that improved robustness was implementing a weighted average of the most recent x-values when using the polynomial fit from the previous frame. 
+I ran into the expected issue of the algorithm failing given changing lighting conditions and also when the road took steep turns. One feature that improved robustness was implementing a recalibration_test for every frame. If the values for lane radius or width did not seem sensible, I recomputed the entire polynomial fit from scratch. Another feature that improved robustness was implementing a weighted average of the most recent x-values when using the polynomial fit from the previous frame. This was done in the update_smooth_fit function. 
 
 However, in the harder_challenge_video, the algorithm still fails for very sharp turns. There seems to be a distinct lag in recalculating the changing radius curvature. 
